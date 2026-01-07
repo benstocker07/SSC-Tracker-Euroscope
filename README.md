@@ -1,0 +1,2 @@
+Requirements:
+- Euroscope (Windows / Wine)

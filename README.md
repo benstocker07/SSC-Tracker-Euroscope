@@ -4,3 +4,13 @@ Requirements:
 - Euroscope (Windows / Wine)
 - Python (v3.8 +)
 - SSC-Tracker (https://ssc-tracker.org)
+
+Euroscope Configuration:
+
+- You may configure Euroscope however you would normally, but you must not connect to the network as normal. 
+
+1) Keep your name, VATSIM ID and password the same
+2) Select whatever callsign you would like to use
+3) Set your rating and position (Delivery, FIS, Tower etc.)
+4) Change the server from AUTOMATIC to 127.0.0.1 / localhost / your machine's IP
+5) Uncheck 'Connect to VATSIM' below

@@ -19,7 +19,7 @@ def fetch_ssc_items():
 
 def convert_to_fsd(item):
     #altitude_ft = item.get("AGL", 0) * 3.28084
-    altitude_ft = item.get("AGL", 0) 
+    altitude_ft = item.get("MSL", 0) 
     groundspeed = item.get("GS", 0)
     heading = item.get("TH", 0)
 
@@ -49,9 +49,12 @@ try:
     while True:
         items = fetch_ssc_items()
 
-        for item in items:
-            fsd = convert_to_fsd(item)
-            conn.sendall(fsd.encode())
+        with open('SSC Data.txt', "w", encoding="utf-8") as file:
+            for item in items:
+                file.write(convert_to_fsd(item))
+                fsd = convert_to_fsd(item)
+                print(fsd)
+                conn.sendall(fsd.encode())
         time.sleep(UPDATE_INTERVAL)
 
 except KeyboardInterrupt:

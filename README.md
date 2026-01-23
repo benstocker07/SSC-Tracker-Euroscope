@@ -6,6 +6,18 @@ Requirements:
 * Python (v3.8 +)
 * SSC-Tracker (https://ssc-tracker.org)
 
+
+
+Features:
+
+1. Checks FSHub.io for airline traffic and pulls flight plans
+2. Takes and injects all SSC traffic into Euroscope
+3. Checks all SSC traffic for a VATSIM flight plan
+4. Auto-assigns SSR
+5. Auto-assumes all traffic detected for easy identification
+
+
+
 Euroscope Configuration:
 
 * You may configure Euroscope however you would normally, but you must not connect to the network as normal.

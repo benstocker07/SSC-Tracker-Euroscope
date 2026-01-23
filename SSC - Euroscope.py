@@ -1,3 +1,15 @@
+import subprocess
+import sys
+
+packages = ["requests", "SimConnect"]
+
+for pkg in packages:
+    subprocess.run(
+        [sys.executable, "-m", "pip", "install", pkg],
+        check=True
+    )
+    print(f'Installed {pkg}')
+
 import socket
 import time
 import requests
@@ -133,6 +145,7 @@ def build_assume(controller, callsign):
     return f"$CQ{controller}:@94835:IT:{callsign}"
 
 sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+print('Waiting for Euroscope connection')
 sock.bind((EUROSCOPE_IP, EUROSCOPE_PORT))
 sock.listen(1)
 

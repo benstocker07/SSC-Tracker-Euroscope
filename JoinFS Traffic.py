@@ -42,7 +42,7 @@ def get_ssr():
         raw = aq.get("TRANSPONDER_CODE:1")
         return decode_squawk(int(raw)) if raw else 7000
     except:
-        return 7000
+        return 1200
 
 def fetch_ssc_items():
     try:
@@ -76,6 +76,7 @@ def parse_joinfs():
                 "TH": 0,
                 "DEP": f[11] or "ZZZZ",
                 "ARR": f[12] or "ZZZZ",
+                "SSR": int(f[17]),
                 "FPL": f[15].strip()
             })
         except:
@@ -159,6 +160,7 @@ def build_fpl(ac, fshub):
 
 def build_pos(ac):
     sq = get_ssr()
+    sq = ac.get("SSR", get_ssr())
     return f"@N:{ac['ID']}:{sq:04d}:1:{ac['LAT']:.5f}:{ac['LON']:.5f}:{m_to_ft(ac['MSL'])}:{int(ac['GS'])}:{int(ac['TH'])}:0"
 
 def build_assume(ctrl, cs):

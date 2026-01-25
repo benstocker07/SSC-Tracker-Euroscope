@@ -8,7 +8,7 @@ import configparser
 from pathlib import Path
 
 config = configparser.ConfigParser()
-config.read("config.txt")
+config.read("JoinFS_config.txt")
 
 SSC = config.getboolean("FEATURES", "SSC")
 JoinFS = config.getboolean("FEATURES", "JoinFS")

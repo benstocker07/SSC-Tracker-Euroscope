@@ -5,7 +5,6 @@ import requests
 from pathlib import Path
 from SimConnect import SimConnect, AircraftRequests
 import configparser
-from pathlib import Path
 
 config = configparser.ConfigParser()
 config.read("JoinFS_config.txt")
@@ -16,11 +15,9 @@ FSHub = config.getboolean("FEATURES", "FSHub")
 
 EUROSCOPE_IP = config.get("EUROSCOPE", "IP")
 EUROSCOPE_PORT = config.getint("EUROSCOPE", "PORT")
-
 SSC_URL = config.get("PATHS", "SSC_URL")
 WHAZZUP = Path(config.get("PATHS", "JoinFS_WHAZZUP"))
 FSHUB_FILE = config.get("PATHS", "FSHUB_FILE")
-
 UPDATE_INTERVAL = config.getint("SETTINGS", "UPDATE_INTERVAL")
 ASSUME_DELAY = config.getint("SETTINGS", "ASSUME_DELAY")
 VATSIM_CACHE_TIME = config.getint("SETTINGS", "VATSIM_CACHE_TIME")
@@ -66,7 +63,7 @@ def parse_joinfs():
         if not in_clients or not line.strip():
             continue
         f = line.split(":")
-        if len(f) < 10 or f[3] != "PILOT":
+        if len(f) < 16 or f[3] != "PILOT":
             continue
         try:
             clients.append({
@@ -76,9 +73,12 @@ def parse_joinfs():
                 "MSL": float(f[7]),
                 "GS": float(f[8]),
                 "MODEL": f[9].lstrip("/"),
-                "TH": 0
+                "TH": 0,
+                "DEP": f[11] or "ZZZZ",
+                "ARR": f[12] or "ZZZZ",
+                "FPL": f[15].strip()
             })
-        except Exception:
+        except:
             continue
     return clients
 
@@ -115,9 +115,7 @@ def get_vatsim_data():
     now = time.time()
     if vatsim_cache["data"] is None or now - vatsim_cache["last"] > VATSIM_CACHE_TIME:
         try:
-            vatsim_cache["data"] = requests.get(
-                "https://data.vatsim.net/v3/vatsim-data.json", timeout=5
-            ).json()
+            vatsim_cache["data"] = requests.get("https://data.vatsim.net/v3/vatsim-data.json", timeout=5).json()
             vatsim_cache["last"] = now
         except:
             pass
@@ -142,9 +140,9 @@ def get_vatsim_fpl(callsign):
 def build_fpl(ac, fshub):
     cs = ac["ID"].upper()
     gs = int(ac.get("GS", 250))
-    dep = "ZZZZ"
-    arr = "ZZZZ"
-    route = ""
+    dep = ac.get("DEP", "ZZZZ")
+    arr = ac.get("ARR", "ZZZZ")
+    route = ac.get("FPL", "")
     acft = ac.get("MODEL", "ZZZZ")
     rfl = None
     if acft == "Typhoon":

@@ -1,0 +1,18 @@
+[FEATURES]
+SSC = False
+JoinFS = True
+FSHub = False
+
+[EUROSCOPE]
+IP = 127.0.0.1
+PORT = 6809
+
+[PATHS]
+SSC_URL = ""
+JoinFS_WHAZZUP = C:\Users\benst\AppData\Local\JoinFS-FS2024\whazzup.txt
+FSHUB_FILE = ""
+
+[SETTINGS]
+UPDATE_INTERVAL = 1
+ASSUME_DELAY = 5
+VATSIM_CACHE_TIME = 30

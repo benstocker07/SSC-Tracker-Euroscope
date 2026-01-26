@@ -1,28 +1,29 @@
 import subprocess
 import sys
-
-packages = ["requests", "SimConnect"]
-
-for pkg in packages:
-    subprocess.run(
-        [sys.executable, "-m", "pip", "install", pkg],
-        check=True
-    )
-    print(f'Installed {pkg}')
-
 import socket
 import time
 import requests
 import json
+import os
 from SimConnect import SimConnect, AircraftRequests
 
-EUROSCOPE_IP = '127.0.0.1'
+packages = ["requests", "SimConnect"]
+for pkg in packages:
+    subprocess.run([sys.executable, "-m", "pip", "install", pkg], check=True)
+
+EUROSCOPE_IP = "127.0.0.1"
 EUROSCOPE_PORT = 6809
-SSC_URL = 'http://127.0.0.1:55055/json'
+SSC_URL = "http://127.0.0.1:55055/json"
 UPDATE_INTERVAL = 1
 ASSUME_DELAY = 5
 FSHUB_FILE = r"\\192.168.0.4\FSHub API\fshub_webhooks.txt"
 VATSIM_CACHE_TIME = 30
+
+SPECIAL_CALLSIGNS = {
+    "LIFTER01",
+    "LIFTER02",
+    "ZZ333"
+}
 
 try:
     sm = SimConnect()
@@ -32,6 +33,8 @@ except Exception:
     aq = None
 
 vatsim_cache = {"data": None, "last": 0}
+fshub_cache = {}
+fshub_size = 0
 
 def m_to_ft(m):
     return int(m)
@@ -44,31 +47,64 @@ def fetch_ssc_items():
 
 def parse_fshub():
     flights = {}
+    buf = ""
+    depth = 0
     try:
         with open(FSHUB_FILE, "r", encoding="utf-8", errors="ignore") as f:
-            blocks = f.read().split("==== NEW WEBHOOK ====")
-        for block in blocks:
-            for line in block.splitlines():
-                if line.startswith("{") and line.endswith("}"):
+            for line in f:
+                if "{" in line:
+                    depth += line.count("{")
+                if depth > 0:
+                    buf += line
+                if "}" in line:
+                    depth -= line.count("}")
+                if depth == 0 and buf.strip():
                     try:
-                        data = json.loads(line)
+                        data = json.loads(buf)
                     except:
+                        buf = ""
                         continue
-                    if data.get("_type") != "flight.departed":
+                    buf = ""
+
+                    _data = data.get("_data") or {}
+                    plan = _data.get("plan") or {}
+
+                    cs = plan.get("flight_no") or plan.get("callsign")
+
+                    dep_plan = (_data.get("departure") or {}).get("plan") or {}
+                    arr_plan = (_data.get("arrival") or {}).get("plan") or {}
+
+                    if not cs:
+                        cs = dep_plan.get("flight_no") or dep_plan.get("callsign")
+                    if not cs:
+                        cs = arr_plan.get("flight_no") or arr_plan.get("callsign")
+
+                    if not cs:
                         continue
-                    plan = data["_data"].get("plan", {})
-                    cs = plan.get("flight_no")
-                    if cs:
-                        flights[cs] = {
-                            "dep": plan.get("departure"),
-                            "arr": plan.get("arrival"),
-                            "route": plan.get("route", ""),
-                            "icao": data["_data"]["aircraft"].get("icao"),
-                            "crz": plan.get("cruise_lvl")
-                        }
+
+                    flights[cs.upper()] = {
+                        "dep": plan.get("departure") or dep_plan.get("departure"),
+                        "arr": plan.get("arrival") or arr_plan.get("arrival"),
+                        "route": plan.get("route") or dep_plan.get("route") or arr_plan.get("route") or "",
+                        "icao": (_data.get("aircraft") or {}).get("icao"),
+                        "crz": plan.get("cruise_lvl") or dep_plan.get("cruise_lvl") or arr_plan.get("cruise_lvl")
+                    }
+
+    except Exception as e:
+        print("FSHub parse error:", e)
+
+    return flights
+
+
+def refresh_fshub_cache():
+    global fshub_cache, fshub_size
+    try:
+        size = os.path.getsize(FSHUB_FILE)
+        if size != fshub_size:
+            fshub_cache = parse_fshub()
+            fshub_size = size
     except:
         pass
-    return flights
 
 def get_vatsim_data():
     now = time.time()
@@ -100,7 +136,12 @@ def get_vatsim_fpl(callsign):
     }
 
 def decode_squawk(raw):
-    return ((raw >> 12) & 0xF) * 1000 + ((raw >> 8) & 0xF) * 100 + ((raw >> 4) & 0xF) * 10 + (raw & 0xF)
+    return (
+        ((raw >> 12) & 0xF) * 1000 +
+        ((raw >> 8) & 0xF) * 100 +
+        ((raw >> 4) & 0xF) * 10 +
+        (raw & 0xF)
+    )
 
 def get_ssr():
     try:
@@ -109,7 +150,7 @@ def get_ssr():
     except:
         return 7000
 
-def build_fpl(ac, fshub):
+def build_normal_fpl(ac):
     callsign = ac["ID"].upper()
     gs = int(ac.get("GS", 250))
     dep = "ZZZZ"
@@ -117,10 +158,12 @@ def build_fpl(ac, fshub):
     route = ""
     acft = ac.get("MODEL", "ZZZZ")
     rfl = None
+
     if acft == "Typhoon":
         acft = "EUFI"
-    if callsign in fshub:
-        d = fshub[callsign]
+
+    if callsign in fshub_cache:
+        d = fshub_cache[callsign]
         dep = d["dep"]
         arr = d["arr"]
         route = d["route"]
@@ -134,18 +177,40 @@ def build_fpl(ac, fshub):
             route = v["route"]
             acft = v["icao"] or acft
             rfl = v["rfl"]
+
     alt = f"FL{int(rfl):03}" if rfl else f"FL{int(m_to_ft(ac.get('MSL', 0)) / 100):03.0f}"
-    return f"$FP{callsign}:*A:I:H/{acft}/L:{gs}:{dep}:0000:0000:{alt}:{arr}:0:30:2:00:{arr}:/V/:{route}"
+
+    return (
+        f"$FP{callsign}:*A:I:H/{acft}/L:{gs}:"
+        f"{dep}:0000:0000:{alt}:{arr}:"
+        f"0:30:2:00:{arr}:/V/:{route}"
+    )
+
+def build_special_fpl(ac):
+    callsign = ac["ID"].upper()
+    gs = int(ac.get("GS", 100))
+    alt = f"FL{int(m_to_ft(ac.get('MSL', 0)) / 100):03.0f}"
+    ARR = "EGVO"
+    DEP = "EGVO"
+    RTE = "EGVO 5112N00110W 5104N00124W 5059N00138W 5054N00135W 5053N00135W 5052N00133W 5054N00126W 5057N00115W 5055N00108W 5054N00107W EGHF 5046N00120W 5051N00135W 5054N00126W 5104N00108W 5109N00056W EGVO"
+    return (
+        f"$FP{callsign}:*A:I:H/H47/L:{gs}:"
+        f"{DEP}:0000:0000:{alt}:{ARR}:"
+        f"0:30:2:00:{ARR}:/V/:{RTE}"
+    )
 
 def build_pos(ac):
     sq = get_ssr()
-    return f"@N:{ac['ID']}:{sq:04d}:1:{ac['LAT']:.5f}:{ac['LON']:.5f}:{m_to_ft(ac['MSL'])}:{int(ac['GS'])}:{int(ac['TH'])}:0"
+    return (
+        f"@N:{ac['ID']}:{sq:04d}:1:"
+        f"{ac['LAT']:.5f}:{ac['LON']:.5f}:"
+        f"{m_to_ft(ac['MSL'])}:{int(ac['GS'])}:{int(ac['TH'])}:0"
+    )
 
 def build_assume(controller, callsign):
     return f"$CQ{controller}:@94835:IT:{callsign}"
 
 sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-print('Waiting for Euroscope connection')
 sock.bind((EUROSCOPE_IP, EUROSCOPE_PORT))
 sock.listen(1)
 
@@ -156,7 +221,6 @@ conn.setblocking(False)
 fpl_sent = set()
 assumed = set()
 first_seen = {}
-fshub_cache = {}
 controller_callsign = None
 
 try:
@@ -169,22 +233,25 @@ try:
         except:
             pass
 
-        if not fshub_cache:
-            fshub_cache = parse_fshub()
-
+        refresh_fshub_cache()
         items = fetch_ssc_items()
         now = time.time()
 
         for ac in items:
-            cs = ac["ID"]
+            cs = ac["ID"].upper()
+
             if cs not in first_seen:
                 first_seen[cs] = now
+
             if cs not in fpl_sent:
-                conn.sendall((build_fpl(ac, fshub_cache) + "\r\n").encode())
+                fpl = build_special_fpl(ac) if cs in SPECIAL_CALLSIGNS else build_normal_fpl(ac)
+                conn.sendall((fpl + "\r\n").encode())
                 fpl_sent.add(cs)
+
             if controller_callsign and cs not in assumed and now - first_seen[cs] >= ASSUME_DELAY:
                 conn.sendall((build_assume(controller_callsign, cs) + "\r\n").encode())
                 assumed.add(cs)
+
             conn.sendall((build_pos(ac) + "\r\n").encode())
 
         time.sleep(UPDATE_INTERVAL)

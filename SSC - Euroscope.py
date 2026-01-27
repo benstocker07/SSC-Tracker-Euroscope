@@ -22,7 +22,6 @@ VATSIM_CACHE_TIME = 30
 SPECIAL_CALLSIGNS = {
     "LIFTER01",
     "LIFTER02",
-    "ZZ333"
 }
 
 try:

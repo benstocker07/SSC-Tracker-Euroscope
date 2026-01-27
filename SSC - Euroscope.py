@@ -191,9 +191,10 @@ def build_special_fpl(ac):
     alt = f"FL{int(m_to_ft(ac.get('MSL', 0)) / 100):03.0f}"
     ARR = "EGVO"
     DEP = "EGVO"
+    Type = "H47"
     RTE = "EGVO 5112N00110W 5104N00124W 5059N00138W 5054N00135W 5053N00135W 5052N00133W 5054N00126W 5057N00115W 5055N00108W 5054N00107W EGHF 5046N00120W 5051N00135W 5054N00126W 5104N00108W 5109N00056W EGVO"
     return (
-        f"$FP{callsign}:*A:I:H/H47/L:{gs}:"
+        f"$FP{callsign}:*A:I:H/{Type}/L:{gs}:"
         f"{DEP}:0000:0000:{alt}:{ARR}:"
         f"0:30:2:00:{ARR}:/V/:{RTE}"
     )

@@ -10,6 +10,25 @@ for pkg in packages:
     subprocess.run([sys.executable, "-m", "pip", "install", pkg], check=True)
 
 import requests
+import zipfile
+
+url = "https://github.com/VATSIM-UK/uk-controller-pack/releases/download/2026_01/uk_controller_pack_2026_01.zip"
+
+base = os.path.expandvars(r"%APPDATA%\EuroScope")
+zip_path = os.path.join(base, "uk_controller_pack_2026_01.zip")
+
+os.makedirs(base, exist_ok=True)
+
+r = requests.get(url, stream=True)
+r.raise_for_status()
+
+with open(zip_path, "wb") as f:
+    for chunk in r.iter_content(8192):
+        f.write(chunk)
+
+with zipfile.ZipFile(zip_path) as z:
+    z.extractall(base)
+
 from SimConnect import SimConnect, AircraftRequests
 
 EUROSCOPE_IP = "127.0.0.1"

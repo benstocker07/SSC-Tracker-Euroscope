@@ -2,14 +2,15 @@ import subprocess
 import sys
 import socket
 import time
-import requests
 import json
 import os
-from SimConnect import SimConnect, AircraftRequests
 
 packages = ["requests", "SimConnect"]
 for pkg in packages:
     subprocess.run([sys.executable, "-m", "pip", "install", pkg], check=True)
+
+import requests
+from SimConnect import SimConnect, AircraftRequests
 
 EUROSCOPE_IP = "127.0.0.1"
 EUROSCOPE_PORT = 6809
@@ -20,9 +21,7 @@ FSHUB_FILE = r"\\192.168.0.4\FSHub API\fshub_webhooks.txt"
 VATSIM_CACHE_TIME = 30
 
 SPECIAL_CALLSIGNS = {
-    "LIFTER01",
-    "LIFTER02",
-    "DREAD04"
+    "TARTAN21"
 }
 
 try:
@@ -190,10 +189,10 @@ def build_special_fpl(ac):
     callsign = ac["ID"].upper()
     gs = int(ac.get("GS", 100))
     alt = f"FL{int(m_to_ft(ac.get('MSL', 0)) / 100):03.0f}"
-    ARR = "EGVO"
-    DEP = "EGVO"
-    Type = "H47"
-    RTE = "EGVO 5112N00110W 5104N00124W 5059N00138W 5054N00135W 5053N00135W 5052N00133W 5054N00126W 5057N00115W 5055N00108W 5054N00107W EGHF 5046N00120W 5051N00135W 5054N00126W 5104N00108W 5109N00056W EGVO"
+    ARR = "EGVN"
+    DEP = "EGVN"
+    Type = "A332"
+    RTE = "DCT HON DCT HON DCT CGY DCT 5318N00056E 5312N00208E DCT BKY DCT"
     return (
         f"$FP{callsign}:*A:I:H/{Type}/L:{gs}:"
         f"{DEP}:0000:0000:{alt}:{ARR}:"

@@ -1,9 +1,4 @@
-import subprocess
-import sys
-import socket
-import time
-import json
-import os
+import subprocess, sys, socket, time, json, os
 
 packages = ["requests", "SimConnect"]
 for pkg in packages:
@@ -11,8 +6,7 @@ for pkg in packages:
 
 import tkinter as tk
 from tkinter import messagebox
-import requests
-import zipfile
+import requests, zipfile
 
 url = "https://github.com/VATSIM-UK/uk-controller-pack/releases/download/2026_01/uk_controller_pack_2026_01.zip"
 base = os.path.expandvars(r"%APPDATA%\EuroScope")

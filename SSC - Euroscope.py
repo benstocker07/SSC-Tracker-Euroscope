@@ -27,6 +27,7 @@ def install():
 def skip():
     root.destroy()
 
+
 root = tk.Tk()
 root.withdraw()
 
@@ -34,6 +35,8 @@ if messagebox.askyesno("Install", "Would you like the UK Controller Pack install
     install()
 else:
     skip()
+
+print('Euroscope connection pending...')
 
 from SimConnect import SimConnect, AircraftRequests
 

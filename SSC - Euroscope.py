@@ -1,16 +1,18 @@
 import subprocess, sys, socket, time, json, os
+import tkinter as tk
+from tkinter import messagebox
+import requests, zipfile
 
 packages = ["requests", "SimConnect"]
 for pkg in packages:
     subprocess.run([sys.executable, "-m", "pip", "install", pkg], check=True)
 
-import tkinter as tk
-from tkinter import messagebox
-import requests, zipfile
-
 url = "https://github.com/VATSIM-UK/uk-controller-pack/releases/download/2026_01/uk_controller_pack_2026_01.zip"
 base = os.path.expandvars(r"%APPDATA%\EuroScope")
 zip_path = os.path.join(base, "uk_controller_pack_2026_01.zip")
+uk_folder = os.path.join(base, "UK")
+
+print(base)
 
 def install():
     os.makedirs(base, exist_ok=True)
@@ -27,15 +29,18 @@ def install():
 def skip():
     root.destroy()
 
-
 root = tk.Tk()
 root.withdraw()
 
-if messagebox.askyesno("Install", "Would you like the UK Controller Pack installed?"):
-    install()
-else:
+if os.path.exists(uk_folder) and os.path.isdir(uk_folder):
     skip()
 
+else:
+    if messagebox.askyesno("Install", "Would you like the UK Controller Pack installed?"):
+        install()
+    else:
+        skip()
+    
 print('Euroscope connection pending...')
 
 from SimConnect import SimConnect, AircraftRequests

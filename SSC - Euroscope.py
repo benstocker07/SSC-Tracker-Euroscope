@@ -40,7 +40,7 @@ print('Euroscope connection pending...')
 
 from SimConnect import SimConnect, AircraftRequests
 
-EUROSCOPE_IP = "127.0.0.1"
+EUROSCOPE_IP = "0.0.0.0"
 EUROSCOPE_PORT = 6809
 SSC_URL = "http://127.0.0.1:55055/json"
 UPDATE_INTERVAL = 1
@@ -185,9 +185,22 @@ def build_normal_fpl(ac):
     route = ""
     acft = ac.get("MODEL", "ZZZZ")
     rfl = None
+    print(acft)
 
     if acft == "Typhoon":
         acft = "EUFI"
+
+    if acft == "ATCCOM.AC_MODEL_A-400M.0.text":
+        acft = 'A400'
+
+    if acft == "ATCCOM.AC_MODEL B738.0.text":
+        acft = 'B738'
+
+    if acft == "$$:MH60":
+        acft = 'MH60'
+
+    if acft == '$$:C17':
+        acft = 'C17'
 
     if callsign in fshub_cache:
         d = fshub_cache[callsign]
@@ -217,10 +230,10 @@ def build_special_fpl(ac):
     callsign = ac["ID"].upper()
     gs = int(ac.get("GS", 100))
     alt = f"FL{int(m_to_ft(ac.get('MSL', 0)) / 100):03.0f}"
-    ARR = "EGVN"
-    DEP = "EGVN"
-    Type = "A332"
-    RTE = "DCT HON DCT HON DCT CGY DCT 5318N00056E 5312N00208E DCT BKY DCT"
+    ARR = ""
+    DEP = ""
+    Type = ""
+    RTE = ""
     return (
         f"$FP{callsign}:*A:I:H/{Type}/L:{gs}:"
         f"{DEP}:0000:0000:{alt}:{ARR}:"
@@ -240,7 +253,7 @@ def build_assume(controller, callsign):
 
 sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 sock.bind((EUROSCOPE_IP, EUROSCOPE_PORT))
-sock.listen(1)
+sock.listen(5)
 
 conn, _ = sock.accept()
 conn.sendall(b"#AA\r\n")
@@ -255,6 +268,7 @@ try:
     while True:
         try:
             data = conn.recv(4096).decode(errors="ignore")
+            print(data)
             for line in data.splitlines():
                 if "SERVER:ATC:" in line:
                     controller_callsign = line.split("SERVER:ATC:", 1)[1].strip()

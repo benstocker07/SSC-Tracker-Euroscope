@@ -1,18 +1,16 @@
 import subprocess, sys, socket, time, json, os
-import tkinter as tk
-from tkinter import messagebox
-import requests, zipfile
 
 packages = ["requests", "SimConnect"]
 for pkg in packages:
     subprocess.run([sys.executable, "-m", "pip", "install", pkg], check=True)
 
+import tkinter as tk
+from tkinter import messagebox
+import requests, zipfile
+
 url = "https://github.com/VATSIM-UK/uk-controller-pack/releases/download/2026_01/uk_controller_pack_2026_01.zip"
 base = os.path.expandvars(r"%APPDATA%\EuroScope")
 zip_path = os.path.join(base, "uk_controller_pack_2026_01.zip")
-uk_folder = os.path.join(base, "UK")
-
-print(base)
 
 def install():
     os.makedirs(base, exist_ok=True)
@@ -32,15 +30,11 @@ def skip():
 root = tk.Tk()
 root.withdraw()
 
-if os.path.exists(uk_folder) and os.path.isdir(uk_folder):
+if messagebox.askyesno("Install", "Would you like the UK Controller Pack installed?"):
+    install()
+else:
     skip()
 
-else:
-    if messagebox.askyesno("Install", "Would you like the UK Controller Pack installed?"):
-        install()
-    else:
-        skip()
-    
 print('Euroscope connection pending...')
 
 from SimConnect import SimConnect, AircraftRequests
@@ -54,7 +48,7 @@ FSHUB_FILE = r"\\192.168.0.4\FSHub API\fshub_webhooks.txt"
 VATSIM_CACHE_TIME = 30
 
 SPECIAL_CALLSIGNS = {
-    "TARTAN21"
+    "LIFTER01", "LIFTER02"
 }
 
 try:
@@ -235,10 +229,10 @@ def build_special_fpl(ac):
     callsign = ac["ID"].upper()
     gs = int(ac.get("GS", 100))
     alt = f"FL{int(m_to_ft(ac.get('MSL', 0)) / 100):03.0f}"
-    ARR = ""
-    DEP = ""
-    Type = ""
-    RTE = ""
+    ARR = "EGQK"
+    DEP = "EGQL"
+    Type = "H47"
+    RTE = "EGQK 5732N00354W 5727N00415W 5712N00436W 5704N00446W 5655N00458W 5653N00443W 5647N00445W 5642N00435W 5637N00445W 5632N00446W 5629N00444W 5631N00438W 5633N00434W 5633N00431W 5633N00427W 5633N00425W 5634N00424W 5635N00421W 5636N00416W 5636N00411W 5636N00407W 5636N00405W 5636N00404W 5634N00405W 5631N00408W 5628N00418W 5626N00421W 5625N00419W 5623N00417W 5624N00406W 5623N00400W 5623N00351W 5625N00327W 5621N00324W 5621N00311W EGQL"
     return (
         f"$FP{callsign}:*A:I:H/{Type}/L:{gs}:"
         f"{DEP}:0000:0000:{alt}:{ARR}:"

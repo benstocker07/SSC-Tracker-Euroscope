@@ -11,7 +11,7 @@ import requests, zipfile
 url = "https://github.com/VATSIM-UK/uk-controller-pack/releases/download/2026_02a/uk_controller_pack_2026_02a.zip"
 releases_url = "https://github.com/VATSIM-UK/UK-Sector-File/releases"
 
-base = os.path.expandvars(r"%APPDATA%/EuroScope")
+base = os.path.expandvars(r"%APPDATA%\EuroScope")
 
 zip_path = os.path.join(base, "uk_controller_pack_2026_02a.zip")
 extracted_folder = os.path.join(base, "UK")

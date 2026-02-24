@@ -12,6 +12,7 @@ url = "https://github.com/VATSIM-UK/uk-controller-pack/releases/download/2026_02
 releases_url = "https://github.com/VATSIM-UK/UK-Sector-File/releases"
 
 base = os.path.expandvars(r"%APPDATA%/Roaming/EuroScope")
+
 base_wine = '/Users/benstocker/VATSIM-ATC/wine-install/euroscope-afv-wine/wine/drive_c/users/benstocker/AppData/Roaming/EuroScope'
 
 zip_path = os.path.join(base_wine, "uk_controller_pack_2026_02a.zip")

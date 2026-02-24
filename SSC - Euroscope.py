@@ -1,4 +1,4 @@
-import subprocess, sys, socket, time, json, os
+import subprocess, sys, socket, time, json, os, re, urllib.parse
 
 packages = ["requests", "SimConnect"]
 for pkg in packages:
@@ -8,32 +8,78 @@ import tkinter as tk
 from tkinter import messagebox
 import requests, zipfile
 
-url = "https://github.com/VATSIM-UK/uk-controller-pack/releases/download/2026_01/uk_controller_pack_2026_01.zip"
-base = os.path.expandvars(r"%APPDATA%\EuroScope")
-zip_path = os.path.join(base, "uk_controller_pack_2026_01.zip")
+url = "https://github.com/VATSIM-UK/uk-controller-pack/releases/download/2026_02a/uk_controller_pack_2026_02a.zip"
+releases_url = "https://github.com/VATSIM-UK/UK-Sector-File/releases"
+
+base = os.path.expandvars(r"%APPDATA%/Roaming/EuroScope")
+base_wine = '/Users/benstocker/VATSIM-ATC/wine-install/euroscope-afv-wine/wine/drive_c/users/benstocker/AppData/Roaming/EuroScope'
+
+zip_path = os.path.join(base_wine, "uk_controller_pack_2026_02a.zip")
+extracted_folder = os.path.join(base, "UK")
+sector_dir = os.path.join(extracted_folder, "Data", "Sector")
+
+configurator_path = os.path.join(extracted_folder, "Configurator.exe")
+
+if os.path.exists(configurator_path):
+    try:
+        subprocess.Popen(configurator_path)
+
+    except PermissionError as e:
+        print(e)
+else:
+    messagebox.showerror("Error", "Configurator.exe not found.")
 
 def install():
-    os.makedirs(base, exist_ok=True)
+    os.makedirs(base_wine, exist_ok=True)
     r = requests.get(url, stream=True)
     r.raise_for_status()
     with open(zip_path, "wb") as f:
         for chunk in r.iter_content(8192):
             f.write(chunk)
     with zipfile.ZipFile(zip_path) as z:
-        z.extractall(base)
+        z.extractall(base_wine)
     messagebox.showinfo("Done", "UK Controller Pack installed")
     root.destroy()
 
-def skip():
-    root.destroy()
+def get_latest_release():
+    r = requests.get(releases_url)
+    r.raise_for_status()
+    html = r.text
+    match = re.search(r'/VATSIM-UK/UK-Sector-File/releases/tag/([^"]+)', html)
+    if not match:
+        return None
+    tag = urllib.parse.unquote(match.group(1))
+    return tag.replace("/", "_")
+
+def get_local_sector():
+    if os.path.exists(sector_dir):
+        files = os.listdir(sector_dir)
+        sct_files = [f for f in files if f.lower().endswith(".sct")]
+        for f in sct_files:
+            if "UK_" in f:
+                return f
+    return None
+
+latest = get_latest_release()
+local_sector = get_local_sector()
 
 root = tk.Tk()
 root.withdraw()
 
-if messagebox.askyesno("Install", "Would you like the UK Controller Pack installed?"):
-    install()
+if latest and local_sector and latest in local_sector:
+    messagebox.showinfo(
+        "Up To Date",
+        f"Latest release: {latest}\nInstalled: {local_sector}\n\nSkipping controller pack installation"
+    )
+    root.destroy()
 else:
-    skip()
+    if messagebox.askyesno(
+        "Outdated or Missing",
+        f"Latest release: {latest}\nInstalled: {local_sector}\n\nInstall/update UK Controller Pack?"
+    ):
+        install()
+    else:
+        root.destroy()
 
 print('Euroscope connection pending...')
 

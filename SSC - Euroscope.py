@@ -17,7 +17,7 @@ zip_path = os.path.join(base, "uk_controller_pack_2026_02a.zip")
 extracted_folder = os.path.join(base, "UK")
 sector_dir = os.path.join(extracted_folder, "Data", "Sector")
 
-print(sector_dir)
+print(f'Installing sector file to {sector_dir}')
 
 configurator_path = os.path.join(extracted_folder, "Configurator.exe")
 
@@ -62,7 +62,6 @@ def get_local_sector():
     return None
 
 latest = get_latest_release()
-print(latest)
 local_sector = get_local_sector()
 
 root = tk.Tk()

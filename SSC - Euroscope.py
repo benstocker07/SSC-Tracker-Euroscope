@@ -11,34 +11,34 @@ import requests, zipfile
 url = "https://github.com/VATSIM-UK/uk-controller-pack/releases/download/2026_02a/uk_controller_pack_2026_02a.zip"
 releases_url = "https://github.com/VATSIM-UK/UK-Sector-File/releases"
 
-base = os.path.expandvars(r"%APPDATA%/Roaming/EuroScope")
+base = os.path.expandvars(r"%APPDATA%/EuroScope")
 
-base_wine = '/Users/benstocker/VATSIM-ATC/wine-install/euroscope-afv-wine/wine/drive_c/users/benstocker/AppData/Roaming/EuroScope'
-
-zip_path = os.path.join(base_wine, "uk_controller_pack_2026_02a.zip")
+zip_path = os.path.join(base, "uk_controller_pack_2026_02a.zip")
 extracted_folder = os.path.join(base, "UK")
 sector_dir = os.path.join(extracted_folder, "Data", "Sector")
 
+print(sector_dir)
+
 configurator_path = os.path.join(extracted_folder, "Configurator.exe")
 
-if os.path.exists(configurator_path):
+'''if os.path.exists(configurator_path):
     try:
         subprocess.Popen(configurator_path)
 
     except PermissionError as e:
         print(e)
 else:
-    messagebox.showerror("Error", "Configurator.exe not found.")
+    messagebox.showerror("Error", "Configurator.exe not found.")'''
 
 def install():
-    os.makedirs(base_wine, exist_ok=True)
+    os.makedirs(base, exist_ok=True)
     r = requests.get(url, stream=True)
     r.raise_for_status()
     with open(zip_path, "wb") as f:
         for chunk in r.iter_content(8192):
             f.write(chunk)
     with zipfile.ZipFile(zip_path) as z:
-        z.extractall(base_wine)
+        z.extractall(base)
     messagebox.showinfo("Done", "UK Controller Pack installed")
     root.destroy()
 
@@ -62,6 +62,7 @@ def get_local_sector():
     return None
 
 latest = get_latest_release()
+print(latest)
 local_sector = get_local_sector()
 
 root = tk.Tk()

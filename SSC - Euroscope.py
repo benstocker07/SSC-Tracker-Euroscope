@@ -21,15 +21,6 @@ print(f'Installing sector file to {sector_dir}')
 
 configurator_path = os.path.join(extracted_folder, "Configurator.exe")
 
-'''if os.path.exists(configurator_path):
-    try:
-        subprocess.Popen(configurator_path)
-
-    except PermissionError as e:
-        print(e)
-else:
-    messagebox.showerror("Error", "Configurator.exe not found.")'''
-
 def install():
     os.makedirs(base, exist_ok=True)
     r = requests.get(url, stream=True)
@@ -247,6 +238,9 @@ def build_normal_fpl(ac):
 
     if acft == '$$:C17':
         acft = 'C17'
+
+    if acft == 'ATCCOM.AC_MODEL A320.0.text':
+        acft = 'A320'
 
     if callsign in fshub_cache:
         d = fshub_cache[callsign]

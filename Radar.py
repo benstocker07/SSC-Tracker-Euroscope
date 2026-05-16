@@ -20,7 +20,7 @@ def load_config():
         settings_script = os.path.join(script_dir, "Settings.py")
 
         subprocess.run([sys.executable, settings_script], check=False)
-        print('Running initial setup')
+        print('Running initial setup...')
 
     with open(CONFIG_FILE, "r") as f:
         cfg = json.load(f)
@@ -489,8 +489,6 @@ while True:
         if cs not in sent:
             conn.sendall((build_fpl(ac) + "\r\n").encode())
             sent.add(cs)
-
-            print(build_pos(ac)) 
 
         conn.sendall((build_pos(ac) + "\r\n").encode())
 

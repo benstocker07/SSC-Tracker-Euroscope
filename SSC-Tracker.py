@@ -3,11 +3,9 @@ import zipfile
 import shutil
 from pathlib import Path
 from fnmatch import fnmatch
-
 import subprocess
 import sys
-
-subprocess.check_call([sys.executable, "-m", "pip", "install", "requests"])
+import platform
 
 import requests
 
@@ -36,8 +34,10 @@ def download_repo_zip(user, repo, branch='main'):
 
     inner_root = next(Path('.').glob(f"{repo}-*"))
     shutil.move(str(inner_root), final_path)
+
     print(f"Repository extracted to {final_path}/")
     return str(final_path)
+
 
 def parse_gitignore(gitignore_path):
     patterns = []
@@ -49,11 +49,13 @@ def parse_gitignore(gitignore_path):
                     patterns.append(line)
     return patterns
 
+
 def should_ignore(filepath, patterns):
     for pattern in patterns:
         if fnmatch(filepath, pattern) or fnmatch(Path(filepath).name, pattern):
             return True
     return False
+
 
 def remove_gitignored_files(base_dir, patterns):
     for root, dirs, files in os.walk(base_dir, topdown=False):
@@ -61,27 +63,38 @@ def remove_gitignored_files(base_dir, patterns):
             rel_path = os.path.relpath(os.path.join(root, name), base_dir)
             if should_ignore(rel_path, patterns):
                 os.remove(os.path.join(root, name))
+
         for name in dirs:
             dir_path = os.path.join(root, name)
             if not os.listdir(dir_path):
                 os.rmdir(dir_path)
 
-def run_bat_file(bat_path):
-    print(f"Running {bat_path}...")
-    subprocess.run(['cmd', '/c', bat_path], check=True)
-    print("Batch file finished running.")
+
+def run_python_file(file_path):
+    print(f"Running {file_path}...")
+
+    if platform.system() == "Windows":
+        subprocess.run([sys.executable, file_path], check=True)
+    else:
+        subprocess.run(["python3", file_path], check=True)
+
+    print("Finished running script.")
+
 
 user = 'benstocker07'
 repo = 'SSC-Tracker-Euroscope'
 branch = 'main'
 
+
 dest_dir = download_repo_zip(user, repo, branch)
+
 gitignore_path = os.path.join(dest_dir, '.gitignore')
 patterns = parse_gitignore(gitignore_path)
 remove_gitignored_files(dest_dir, patterns)
 
-bat_path = os.path.join(dest_dir, 'SSC - Euroscope.py')
-if os.path.exists(bat_path):
-    run_bat_file(bat_path)
+entry_file = os.path.join(dest_dir, 'Radar.py')
+
+if os.path.exists(entry_file):
+    run_python_file(entry_file)
 else:
-    print(f"Error: {bat_path} not found.")
+    print(f"Error: {entry_file} not found.")

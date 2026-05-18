@@ -218,7 +218,7 @@ def open_settings():
         try:
             ip = requests.get("https://api.ipify.org", timeout=5).text.strip()
 
-            SERVER = "https://alto-generation-province-casting.trycloudflare.com/register"
+            SERVER = "https://app.vtacraf.uk/register"
 
             payload = {
                 "email": email,

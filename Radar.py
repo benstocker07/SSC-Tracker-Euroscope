@@ -83,13 +83,23 @@ def ssc_scraper():
         return int(v) if v else 0
 
     def clean_model(v):
-        v = (v or "").upper().strip()
+        v = str(v or "").upper().strip()
 
         v = v.replace("ATCCOM.AC_MODEL_", "")
+        v = v.replace("ATCCOM.AC_MODEL", "")
+        v = v.replace("$$:", "")
+        v = v.replace("$$", "")
 
+        v = re.sub(r"\..*$", "", v) 
         v = re.sub(r"[^A-Z0-9-]", "", v)
 
-        return v if v else "ZZZZ"
+        if "TYPHOON" in v:
+            return "EUFI"
+
+        if "C17" in v:
+            return "C17"
+
+        return v or "ZZZZ"
 
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=False)
@@ -110,7 +120,6 @@ def ssc_scraper():
         page.wait_for_selector("#ssc-setup")
         page.click("#ssc-setup")
 
-        # Select all columns except excluded ones
         cols = page.locator("input[id^='col-']")
         EXCLUDE = {"GS", "MSL", "ID"}
 
@@ -129,7 +138,6 @@ def ssc_scraper():
 
         page.wait_for_selector("a.callsign")
 
-        # Precompute headers ONCE (performance fix)
         headers = page.query_selector_all("#ssc-acheader th")
         header_map = {}
 
@@ -155,7 +163,6 @@ def ssc_scraper():
                 if not pid:
                     continue
 
-                # Aircraft model (FIXED + CLEANED)
                 model_raw = get(tds, "MODEL") or get(tds, "AC")
                 ac_type = clean_model(model_raw)
 
@@ -249,8 +256,21 @@ def build_pos(ac):
 
 def build_fpl(ac):
     cs = get_id(ac)
-    acft = ac.get("MODEL") or "ZZZZ"
-    print(f'Aircraft Model: {acft}')
+
+    raw = (ac.get("MODEL") or "").upper().strip()
+
+    raw = raw.replace("ATCCOM.AC_MODEL_", "")
+    raw = raw.replace("$$:", "")
+    raw = raw.replace("$$", "")
+
+    if "TYPHOON" in raw:
+        acft = "EUFI"
+    elif "C17" in raw or "C-17" in raw:
+        acft = "C17"
+    else:
+        acft = re.sub(r"[^A-Z0-9-]", "", raw) or "ZZZZ"
+
+    print("Aircraft Model:", raw, "->", acft)
 
     dep = arr = route = ""
     rfl = None

@@ -18,13 +18,11 @@ def load_config():
     if not os.path.exists(CONFIG_FILE):
         script_dir = os.path.dirname(os.path.abspath(__file__))
         settings_script = os.path.join(script_dir, "Settings.py")
-
         subprocess.run([sys.executable, settings_script], check=False)
         print('Running initial setup...')
 
     with open(CONFIG_FILE, "r") as f:
-        cfg = json.load(f)
-    return cfg
+        return json.load(f)
 
 config = load_config()
 
@@ -43,133 +41,23 @@ EUROSCOPE_PORT = config["EUROSCOPE_PORT"]
 
 token = config["FSHUB_API_KEY"]
 
-USE_SHIP_TARGETS = False
-
 ssc_data = []
 ssc_lock = threading.Lock()
 
-def ShipTargets():
-    return [
-        {"name": "TARGET1", "lat": 52.88485, "lon": 0.15074},
-        {"name": "TARGET2", "lat": 52.86498, "lon": 0.19020},
-    ]
+def get_id(ac):
+    return (ac.get("CALLSIGN") or ac.get("ID") or "").upper().strip()
 
 def get_mock_aircraft():
-    return [
-        {
-            "ID": "GAXTL",
-            "CALLSIGN": "GAXTL",
-            "LAT": 59.2619,
-            "LON": 24.2235,
-            "MSL": 200,
-            "GS": 100,
-            #TH = True Heading
-            "TH": 90,
-            "MODEL": "P28A",
-            "MOCK": True
-        }
-    ] if MOCK_AIRCRAFT else []
-
-def build_ship_pos(ship, offset):
-    lat = ship["lat"] + offset
-    return f"@N:{ship['name']}:7000:1:{lat:.5f}:{ship['lon']:.5f}:1000:5:90:0"
-
-def build_ship_fpl(ship):
-    return f"$FP{ship['name']}:*A:I:V/SHIP/L:0:ZZZZ:0000:0000:VFR:ZZZZ:0:00:0:00:ZZZZ:/V/:"
-
-def build_ship_assume(ship, controller):
-    return f"$CQ{controller}:@94835:IT:{ship['name']}"
-
-targets = ShipTargets() if USE_SHIP_TARGETS else []
-ship_offsets = {s["name"]: 0 for s in targets}
-
-url = "https://github.com/VATSIM-UK/UK-Sector-File/releases/download/2026%2F04/UK_2026_04.zip"
-releases_url = "https://github.com/VATSIM-UK/UK-Sector-File/releases"
-
-base = os.path.expandvars(r"%APPDATA%\EuroScope")
-zip_path = os.path.join(base, "uk_controller_pack.zip")
-sector_dir = os.path.join(base, "UK", "Data", "Sector")
-
-def install():
-    os.makedirs(base, exist_ok=True)
-    r = requests.get(url, stream=True)
-    with open(zip_path, "wb") as f:
-        for c in r.iter_content(8192):
-            f.write(c)
-    with zipfile.ZipFile(zip_path) as z:
-        z.extractall(base)
-        
-def show_error(msg):
-    root.after(0, lambda: messagebox.showerror("SSC Error", msg))
-
-def get_latest_release():
-    r = requests.get(releases_url)
-    m = re.search(r'/releases/tag/([^"]+)', r.text)
-    return urllib.parse.unquote(m.group(1)).replace("/", "_") if m else None
-
-def get_local_sector():
-    if os.path.exists(sector_dir):
-        for f in os.listdir(sector_dir):
-            if f.endswith(".sct") and "UK_" in f:
-                return f
-    return None
-
-root = None
-
-root = tk.Tk()
-root.withdraw()
-
-def run_tk():
-    root.mainloop()
-
-latest = get_latest_release()
-local = get_local_sector()
-
-def ask_update():
-    result = {}
-
-    def _ask():
-        result["value"] = messagebox.askyesno(
-            "Update required for the UKCP",
-            "Install/update UK Controller Pack?"
-        )
-
-    root.after(0, _ask)
-
-    while "value" not in result:
-        root.update()
-        time.sleep(0.05)
-
-    return result["value"]
-
-if not (latest and local and latest in local):
-    if ask_update():
-        install()
-        messagebox.showinfo("Done", "Installed")
-
-from SimConnect import SimConnect, AircraftRequests
-
-VATSIM_CACHE_TIME = 30
-
-SPECIAL_ROUTES = {
-    k.upper(): {
-        "dep": v["dep"].upper(),
-        "arr": v["arr"].upper(),
-        "route": v["route"].upper(),
-        "fl": v["fl"].upper()
-    }
-    for k, v in config.get("SPECIAL_ROUTES", {}).items()
-}
-
-try:
-    sm = SimConnect()
-    aq = AircraftRequests(sm, _time=200)
-except:
-    aq = None
-
-vatsim_cache = {"data": None, "last": 0}
-fshub_cache = {}
-whazzup_cache = {}
+    return [{
+        "ID": "GAXTL",
+        "CALLSIGN": "GAXTL",
+        "LAT": 59.2619,
+        "LON": 24.2235,
+        "MSL": 200,
+        "GS": 100,
+        "TH": 90,
+        "MODEL": "P28A",
+    }] if MOCK_AIRCRAFT else []
 
 def fetch_ssc_items():
     try:
@@ -177,36 +65,56 @@ def fetch_ssc_items():
     except:
         return []
 
-def to_float(v):
-    v = (v or "").strip().lower()
-    v = re.sub(r"[^0-9.\-]", "", v)
-    return float(v) if v else 0.0
-
 def ssc_scraper():
     global ssc_data
 
-    def clean(v):
+    def clean_text(v):
         v = (v or "").strip()
         return v if v else "0"
+
+    def to_float(v):
+        v = (v or "").strip()
+        v = re.sub(r"[^0-9.\-]", "", v)
+        return float(v) if v else 0.0
+
+    def to_int(v):
+        v = (v or "").strip()
+        v = re.sub(r"[^0-9\-]", "", v)
+        return int(v) if v else 0
+
+    def clean_model(v):
+        v = str(v or "").upper().strip()
+
+        v = v.replace("ATCCOM.AC_MODEL_", "")
+        v = v.replace("ATCCOM.AC_MODEL", "")
+        v = v.replace("$$:", "")
+        v = v.replace("$$", "")
+
+        v = re.sub(r"\..*$", "", v) 
+        v = re.sub(r"[^A-Z0-9-]", "", v)
+
+        if "TYPHOON" in v:
+            return "EUFI"
+
+        if "C17" in v:
+            return "C17"
+
+        return v or "ZZZZ"
 
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=False)
         page = browser.new_page()
-        page.goto("http://ssc-tracker.org/", wait_until="domcontentloaded")
 
+        page.goto("http://ssc-tracker.org/", wait_until="domcontentloaded")
         page.wait_for_timeout(2000)
 
         selector = f'button[data-gn="{SERVER}"]'
-
         button = page.locator(selector)
 
-        print(button.count())
-
         if button.count() == 0:
-            show_error(f"No traffic seen on {SERVER}")
+            print("No SSC traffic")
             return
 
-        button.first.wait_for(state="visible", timeout=15000)
         button.first.click()
 
         page.wait_for_selector("#ssc-setup")
@@ -217,31 +125,34 @@ def ssc_scraper():
 
         for i in range(cols.count()):
             col = cols.nth(i)
-            col_id = col.get_attribute("id")
+            col_id = col.get_attribute("id") or ""
             name = col_id.replace("col-", "").upper()
+
             if any(ex in name for ex in EXCLUDE):
                 continue
+
             page.locator(f"label[for='{col_id}']").click()
 
         page.click("#ssc-setup")
         page.keyboard.press("Escape")
+
         page.wait_for_selector("a.callsign")
 
-        def get(header_map, tds, name):
+        headers = page.query_selector_all("#ssc-acheader th")
+        header_map = {}
+
+        for i, h in enumerate(headers):
+            title = (h.get_attribute("title") or h.inner_text() or "").strip().upper()
+            header_map[title] = i
+
+        def get(tds, name):
             i = header_map.get(name)
             if i is None or i >= len(tds):
                 return "0"
-            return clean(tds[i].inner_text())
+            return clean_text(tds[i].inner_text())
 
         while True:
             callsigns = page.query_selector_all("a.callsign")
-            headers = page.query_selector_all("#ssc-acheader th")
-
-            header_map = {}
-            for i, h in enumerate(headers):
-                title = (h.get_attribute("title") or h.inner_text() or "").strip().upper()
-                header_map[title] = i
-
             live = []
 
             for c in callsigns:
@@ -252,47 +163,27 @@ def ssc_scraper():
                 if not pid:
                     continue
 
+                model_raw = get(tds, "MODEL") or get(tds, "AC")
+                ac_type = clean_model(model_raw)
+
                 live.append({
                     "ID": pid,
-                    "CALLSIGN": c.inner_text().strip(),
+                    "CALLSIGN": pid,
                     "LAT": float(c.get_attribute("latitude") or 0),
                     "LON": float(c.get_attribute("longitude") or 0),
-                    "MSL": to_float(get(header_map, tds, "ALTITUDE ABOVE MSL")),
-                    "GS": to_float(get(header_map, tds, "GROUNDSPEED")),
-                    "TH": to_float(get(header_map, tds, "TRUE HEADING")),
-                    "MODEL": get(header_map, tds, "AC") or get(header_map, tds, "MODEL")
+                    "MSL": to_int(get(tds, "ALTITUDE ABOVE MSL")),
+                    "GS": to_int(get(tds, "GROUNDSPEED")),
+                    "TH": to_int(get(tds, "TRUE HEADING")),
+                    "MODEL": ac_type
                 })
+
             with ssc_lock:
                 ssc_data = live
+
             time.sleep(1)
 
 if not USING_SSC:
     threading.Thread(target=ssc_scraper, daemon=True).start()
-
-def parse_whazzup():
-    out = {}
-    try:
-        with open(WHAZZUP_FILE, "r", encoding="utf-8", errors="ignore") as f:
-            lines = f.readlines()
-        if "!CLIENTS" not in "".join(lines):
-            return out
-        start = lines.index("!CLIENTS\n") + 1
-        for line in lines[start:]:
-            if line.startswith("!"):
-                break
-            p = line.split(":")
-            if len(p) > 10:
-                cs = p[0].upper()
-                out[cs] = {
-                    "lat": float(p[5]),
-                    "lon": float(p[6]),
-                    "alt": int(p[7]),
-                    "gs": int(p[8]),
-                    "icao": p[9].replace("/ATCCOM.AC_MODEL ", "").strip()
-                }
-    except:
-        pass
-    return out
 
 def parse_fshub():
     try:
@@ -302,137 +193,47 @@ def parse_fshub():
             timeout=5
         )
         r.raise_for_status()
-        if r.status_code == 403:
-            print('Invalid API key')
         data = r.json()
-
-        def parse_dep_arr(route: str):
-            if not route:
-                return "", ""
-
-            parts = route.strip().upper().split()
-
-            if len(parts) == 0:
-                return "", ""
-
-            dep = parts[0]
-            arr = parts[-1]
-
-            return dep, arr
 
         out = {}
 
         for item in data.get("flightplans", []):
             cs = (item.get("callsign") or "").upper()
+            if not cs:
+                continue
 
             route = (item.get("route") or "").upper()
+            parts = route.split()
 
-            dep, arr = parse_dep_arr(route)
+            dep = parts[0] if parts else ""
+            arr = parts[-1] if parts else ""
 
             out[cs] = {
                 "dep": dep,
                 "arr": arr,
                 "route": route,
-                "icao": None,
                 "crz": item.get("cruise_level")
             }
 
         return out
 
-    except Exception as e:
-        print(e)
+    except:
         return {}
 
 def fshub_updater():
-
     global fshub_cache
+    fshub_cache = {}
 
     while True:
-
-        try:
-            if token:
-                fshub_cache = parse_fshub()
-
-        except Exception as e:
-            err = str(e)
-
-            print("FSHUB ERROR:", err)
-
+        if token:
+            fshub_cache = parse_fshub()
         time.sleep(30)
 
 threading.Thread(target=fshub_updater, daemon=True).start()
 
-def get_vatsim():
-    now = time.time()
-    if not vatsim_cache["data"] or now - vatsim_cache["last"] > VATSIM_CACHE_TIME:
-        try:
-            vatsim_cache["data"] = requests.get("https://data.vatsim.net/v3/vatsim-data.json").json()
-            vatsim_cache["last"] = now
-        except:
-            pass
-    return vatsim_cache["data"]
-
-def get_ssr():
-    try:
-        return int(aq.get("TRANSPONDER_CODE:1"))
-    except:
-        return 7000
-
-def build_pos(ac):
-    return f"@N:{ac['ID']}:{get_ssr():04d}:1:{ac['LAT']:.5f}:{ac['LON']:.5f}:{int(ac['MSL'])}:{int(ac['GS'])}:{int(ac['TH'])}:0"
-
-def build_fpl(ac):
-    cs = ac["ID"].upper()
-    acft = ac.get("MODEL") or "ZZZZ"
-
-    if "TYPHOON" in acft.upper() or acft.upper() == "EFA":
-        acft = "EUFI"
-
-    if "ZK" in acft.upper() or acft.upper() == "EFA":
-        acft = "EUFI"
-
-    if "VULCAN" in acft.upper():
-        acft = 'VULC'
-
-    if "TORNADO" in acft.upper():
-        acft = 'TOR'
-
-    if "CHINOOK" in acft.upper():
-        acft = 'H47'
-
-    if "APACHE" in acft.upper():
-        acft = 'H64'
-
-    if acft == "F-111":
-        acft = "F111"
-
-    dep = arr = route = ""
-    rfl = None
-
-    if cs in SPECIAL_ROUTES:
-        d = SPECIAL_ROUTES[cs]
-
-        dep = d.get("dep") or ""
-        arr = d.get("arr") or ""
-        route = d.get("route") or ""
-        rfl = str(d.get("fl") or "").replace("FL", "")
-
-    if cs in fshub_cache:
-        d = fshub_cache[cs]
-
-        dep = d.get("dep") or ""
-        arr = d.get("arr") or ""
-        route = (d.get("route") or "").upper().strip()
-        acft = d.get("icao") or acft
-        rfl = d.get("crz")
-
-    alt = f"FL{int(rfl):03}" if rfl else "FL300"
-
-    return f"$FP{cs}:*A:I:H/{acft}/L:250:{dep}:0000:0000:{alt}:{arr}:0:30:2:00:{arr}:/V/:{route}"
-
 sock = socket.socket()
 sock.bind((EUROSCOPE_IP, EUROSCOPE_PORT))
-sock.listen(5)
+sock.listen(1)
 
 conn, _ = sock.accept()
 conn.sendall(b"#AA\r\n")
@@ -443,58 +244,92 @@ seen = {}
 sent = set()
 assumed = set()
 
-def send_telex(frm, to, msg):
-    if not CPDLC_Test:
-        return
-    requests.post("https://www.hoppie.nl/acars/system/connect.html", data={
-        "logon": HOPPIE_CODE,
-        "from": frm,
-        "to": to,
-        "type": "telex",
-        "packet": msg
-    })
+def safe_send(data):
+    try:
+        conn.sendall(data)
+    except:
+        pass
+
+def build_pos(ac):
+    cs = get_id(ac)
+    return f"@N:{cs}:7000:1:{ac['LAT']:.5f}:{ac['LON']:.5f}:{int(ac['MSL'])}:{int(ac['GS'])}:{int(ac['TH'])}:0"
+
+def build_fpl(ac):
+    cs = get_id(ac)
+
+    raw = (ac.get("MODEL") or "").upper().strip()
+
+    raw = raw.replace("ATCCOM.AC_MODEL_", "")
+    raw = raw.replace("$$:", "")
+    raw = raw.replace("$$", "")
+
+    if "TYPHOON" in raw:
+        acft = "EUFI"
+    elif "C17" in raw or "C-17" in raw:
+        acft = "C17"
+    else:
+        acft = re.sub(r"[^A-Z0-9-]", "", raw) or "ZZZZ"
+
+    print("Aircraft Model:", raw, "->", acft)
+
+    dep = arr = route = ""
+    rfl = None
+
+    if cs in fshub_cache:
+        d = fshub_cache[cs]
+        dep = d.get("dep") or ""
+        arr = d.get("arr") or ""
+        route = d.get("route") or ""
+        rfl = d.get("crz")
+
+    alt = f"FL{int(rfl):03}" if rfl else "FL300"
+
+    return f"$FP{cs}:*A:I:H/{acft}/L:250:{dep}:0000:0000:{alt}:{arr}:0:30:2:00:{arr}:/V/:{route}"
+
+def fsd_keepalive():
+    while True:
+        safe_send(b"#AA\r\n")
+        time.sleep(5)
+
+threading.Thread(target=fsd_keepalive, daemon=True).start()
 
 while True:
+    now = time.time()
+
     try:
         data = conn.recv(4096).decode(errors="ignore")
+        print(data)
         for l in data.splitlines():
-            if l.startswith("#TM"):
-                p = l.split(":")
-                if len(p) > 2:
-                    s = p[0][3:]
-                    r = ":".join(p[2:])
-                    if "," in r:
-                        t, m = r.split(",", 1)
-                        if t == "":
-                            t = tanker
-                        send_telex(s, t.strip(), m.strip())
             if "SERVER:ATC:" in l:
                 controller = l.split(":")[-1].strip()
     except:
         pass
 
+    items = []
+
     if USING_SSC:
-        items = fetch_ssc_items() + get_mock_aircraft()
+        items = fetch_ssc_items()
     else:
         with ssc_lock:
-            items = ssc_data.copy() + get_mock_aircraft()
-        now = time.time()   
+            items = ssc_data.copy()
 
     for ac in items:
-        cs = ac["ID"].upper()
+
+        cs = get_id(ac)
+        if not cs:
+            continue
 
         if cs not in seen:
             seen[cs] = now
 
         if cs not in sent:
-            conn.sendall((build_fpl(ac) + "\r\n").encode())
+            safe_send((build_fpl(ac) + "\r\n").encode())
             sent.add(cs)
 
-        conn.sendall((build_pos(ac) + "\r\n").encode())
+        safe_send((build_pos(ac) + "\r\n").encode())
 
         if controller and cs not in assumed and now - seen[cs] > ASSUME_DELAY:
-            conn.sendall((f"$CQ{controller}:@94835:IT:{cs}\r\n").encode())
+            safe_send((f"$CQ{controller}:@94835:IT:{cs}\r\n").encode())
             assumed.add(cs)
-            print(f'Assuming {cs}')
 
-    time.sleep(UPDATE_INTERVAL)    
+    time.sleep(UPDATE_INTERVAL)
